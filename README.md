@@ -1,6 +1,6 @@
-# AuthWeb — User Management & Authentication System (ITransition Task #4)
+# AuthWeb — User Management & Authentication System (ITransition)
 
-A complete, production-ready ASP.NET Core web application for user authentication, email verification, server-side request validation, and bulk user management built according to **ITransition Task #4** specifications.
+A complete, production-ready ASP.NET Core web application for user authentication, email verification, server-side request validation, and bulk user management built according to **ITransition** specifications.
 
 [![GitHub Repository](https://img.shields.io/badge/GitHub-hydro1d%2Fauthweb__itransition-blue?logo=github)](https://github.com/hydro1d/authweb_itransition)
 [![Framework](https://img.shields.io/badge/.NET-10.0-purple?logo=dotnet)](https://dotnet.microsoft.com/)
@@ -8,7 +8,7 @@ A complete, production-ready ASP.NET Core web application for user authenticatio
 
 ---
 
-## 🚀 Technology Stack
+##  Technology Stack
 
 - **Backend**: C#, ASP.NET Core MVC 10.0
 - **Data & ORM**: Entity Framework Core 10.0 with PostgreSQL (`Npgsql`) & SQLite fallback
@@ -18,7 +18,7 @@ A complete, production-ready ASP.NET Core web application for user authenticatio
 
 ---
 
-## 🏛️ Architecture & Key Features
+##  Architecture & Key Features
 
 1. **Explicit Database Unique Email Index (`IX_Users_Email`)**:
    - Configured in `ApplicationDbContext` via `HasIndex(u => u.Email).IsUnique()`.
@@ -115,29 +115,6 @@ Executes 4 automated unit & integration tests covering database unique constrain
 
 ---
 
-## 📽️ Video Recording Checklist Verification
-
-When recording the final submission video, follow this sequence:
-1. **Register User**: Register a new user (accepts 1-character password like `"a"`).
-2. **Confirmation**: View the confirmation email dispatch message / link.
-3. **Confirm Email**: Click confirmation link -> observe status change to `Active`.
-4. **Login**: Sign in with new credentials -> land on User Management page.
-5. **Block User**: Select a non-current user, click **Block** -> observe status changed to `Blocked`.
-6. **Unblock User**: Select the blocked user, click **Unblock** -> observe status changed to `Active`.
-7. **Select All & Self Block**: Select all users (including current user), click **Block** -> observe automatic redirection to Login page with blocked notice.
-8. **Database Unique Index**: Open EF Migration `InitialCreate.cs` -> point out `migrationBuilder.CreateIndex(..., name: "IX_Users_Email", unique: true)`.
-9. **Duplicate Exception Code**: Open `AccountController.cs` -> point out `IsUniqueConstraintViolation(ex)` and `_context.Users.Add(user); await _context.SaveChangesAsync();` direct INSERT without prior checking.
-10. **Duplicate Registration Demo**: Register with an already existing email -> observe error message: `"An account with this email already exists."`.
-
----
-
-## 🌐 Deployment Instructions
-
-Deploy to **Render**, **Azure**, **AWS**, or **Railway**:
-1. Connect GitHub repository `https://github.com/hydro1d/authweb_itransition.git`.
-2. Build Command: `dotnet publish -c Release -o out`
-3. Start Command: `dotnet out/AuthWeb.dll`
-4. Set Environment Variables: `DATABASE_URL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`.
 
 ---
 
