@@ -1,0 +1,262 @@
+@model IEnumerable<AuthWeb.Models.User>
+@using System.Security.Claims
+
+@{
+    ViewData["Title"] = "User Management";
+    var currentUserIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+}
+
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="fw-bold mb-0 text-dark">User Management</h2>
+            <p class="text-muted small mb-0">View, manage, and perform administrative actions on users</p>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-light text-dark border p-2 fw-normal">
+                Signed in as: <strong class="text-primary">@User.Identity?.Name</strong>
+            </span>
+            <form asp-controller="Account" asp-action="Logout" method="post" class="d-inline">
+                <button type="submit" class="btn btn-outline-secondary btn-sm fw-semibold">
+                    <i class="bi bi-box-arrow-right me-1"></i> Log Out
+                </button>
+            </form>
+        </div>
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show py-2 small shadow-sm" role="alert">
+            <i class="bi bi-check-circle-fill me-1"></i> @TempData["SuccessMessage"]
+            <button type="button" class="btn-close py-2" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show py-2 small shadow-sm" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-1"></i> @TempData["ErrorMessage"]
+            <button type="button" class="btn-close py-2" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    <!-- Toolbar -->
+    <div class="card shadow-sm border-0 mb-3 bg-light">
+        <div class="card-body p-2 d-flex flex-wrap align-items-center gap-2">
+            <!-- Block Button -->
+            <button type="button" id="btnBlock" class="btn btn-outline-danger btn-sm px-3 fw-semibold action-btn" disabled
+                    data-bs-toggle="tooltip" data-bs-placement="top" title="Block selected users">
+                <i class="bi bi-lock-fill me-1"></i> Block
+            </button>
+
+            <!-- Unblock Icon Button -->
+            <button type="button" id="btnUnblock" class="btn btn-outline-success btn-sm px-3 action-btn" disabled
+                    data-bs-toggle="tooltip" data-bs-placement="top" title="Unblock selected users">
+                <i class="bi bi-unlock-fill fs-6"></i>
+            </button>
+
+            <!-- Delete Icon Button -->
+            <button type="button" id="btnDelete" class="btn btn-outline-secondary btn-sm px-3 action-btn" disabled
+                    data-bs-toggle="tooltip" data-bs-placement="top" title="Delete selected users">
+                <i class="bi bi-trash-fill fs-6 text-danger"></i>
+            </button>
+
+            <!-- Delete Unverified Icon Button -->
+            <button type="button" id="btnDeleteUnverified" class="btn btn-outline-warning text-dark btn-sm px-3"
+                    data-bs-toggle="tooltip" data-bs-placement="top" title="Delete unverified users">
+                <i class="bi bi-person-x-fill fs-6"></i> Delete Unverified
+            </button>
+
+            <span class="ms-auto text-muted small me-2" id="selectionCount">0 selected</span>
+        </div>
+    </div>
+
+    <!-- Hidden Form for Toolbar Submit -->
+    <form id="toolbarForm" method="post">
+        @Html.AntiForgeryToken()
+        <div id="selectedUsersContainer"></div>
+    </form>
+
+    <!-- User Management Table -->
+    <div class="card shadow-sm border-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light border-bottom">
+                    <tr>
+                        <th style="width: 40px;" class="ps-3 align-middle">
+                            <input type="checkbox" class="form-check-input" id="selectAllCheckbox" 
+                                   data-bs-toggle="tooltip" title="Select / Deselect all users" />
+                        </th>
+                        <th class="fw-semibold">Name</th>
+                        <th class="fw-semibold">Email</th>
+                        <th class="fw-semibold">Registered</th>
+                        <th class="fw-semibold">Last Login / Activity</th>
+                        <th class="fw-semibold text-center">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!Model.Any())
+                    {
+                        <tr>
+                            <td colspan="6" class="text-center py-4 text-muted">No users found in database.</td>
+                        </tr>
+                    }
+                    else
+                    {
+                        foreach (var user in Model)
+                        {
+                            var isCurrentUser = user.Id.ToString().Equals(currentUserIdStr, StringComparison.OrdinalIgnoreCase);
+                            <tr class="@(isCurrentUser ? "table-active" : "")">
+                                <td class="ps-3">
+                                    <input type="checkbox" class="form-check-input user-checkbox" 
+                                           value="@user.Id" data-user-id="@user.Id" />
+                                </td>
+                                <td>
+                                    <span class="fw-semibold text-dark">@user.Name</span>
+                                    @if (isCurrentUser)
+                                    {
+                                        <span class="badge bg-info text-dark ms-1 small">You</span>
+                                    }
+                                </td>
+                                <td><span class="text-body">@user.Email</span></td>
+                                <td>
+                                    <small class="text-muted">@user.RegisteredAt.ToString("yyyy-MM-dd HH:mm:ss") UTC</small>
+                                </td>
+                                <td>
+                                    @if (user.LastLoginAt.HasValue)
+                                    {
+                                        <small class="text-muted">@user.LastLoginAt.Value.ToString("yyyy-MM-dd HH:mm:ss") UTC</small>
+                                    }
+                                    else
+                                    {
+                                        <small class="text-muted italic">Never logged in</small>
+                                    }
+                                </td>
+                                <td class="text-center">
+                                    @if (user.Status == AuthWeb.Models.UserStatus.Active)
+                                    {
+                                        <span class="badge bg-success px-2 py-1">Active</span>
+                                    }
+                                    else if (user.Status == AuthWeb.Models.UserStatus.Blocked)
+                                    {
+                                        <span class="badge bg-danger px-2 py-1">Blocked</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-warning text-dark px-2 py-1">Unverified</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // note: Specification helper function getUniqIdValue to extract unique identifier from input element
+        function getUniqIdValue(element) {
+            if (!element) return null;
+            return element.getAttribute('data-user-id') || element.value;
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            // Initialize Bootstrap Tooltips
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+
+            const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+            const userCheckboxes = document.querySelectorAll('.user-checkbox');
+            const btnBlock = document.getElementById('btnBlock');
+            const btnUnblock = document.getElementById('btnUnblock');
+            const btnDelete = document.getElementById('btnDelete');
+            const btnDeleteUnverified = document.getElementById('btnDeleteUnverified');
+            const selectionCount = document.getElementById('selectionCount');
+            const toolbarForm = document.getElementById('toolbarForm');
+            const selectedUsersContainer = document.getElementById('selectedUsersContainer');
+
+            function getSelectedUserIds() {
+                const selected = [];
+                userCheckboxes.forEach(cb => {
+                    if (cb.checked) {
+                        const id = getUniqIdValue(cb);
+                        if (id) selected.push(id);
+                    }
+                });
+                return selected;
+            }
+
+            function updateToolbarState() {
+                const selectedIds = getSelectedUserIds();
+                const count = selectedIds.length;
+                
+                selectionCount.textContent = count + ' selected';
+
+                const hasSelection = count > 0;
+                btnBlock.disabled = !hasSelection;
+                btnUnblock.disabled = !hasSelection;
+                btnDelete.disabled = !hasSelection;
+
+                // Sync selectAllCheckbox checked state
+                if (userCheckboxes.length > 0) {
+                    selectAllCheckbox.checked = (count === userCheckboxes.length);
+                    selectAllCheckbox.indeterminate = (count > 0 && count < userCheckboxes.length);
+                }
+            }
+
+            // Select / Deselect All event listener
+            if (selectAllCheckbox) {
+                selectAllCheckbox.addEventListener('change', function () {
+                    userCheckboxes.forEach(cb => {
+                        cb.checked = selectAllCheckbox.checked;
+                    });
+                    updateToolbarState();
+                });
+            }
+
+            // Individual checkbox event listener
+            userCheckboxes.forEach(cb => {
+                cb.addEventListener('change', updateToolbarState);
+            });
+
+            function executeToolbarAction(actionUrl) {
+                const selectedIds = getSelectedUserIds();
+                selectedUsersContainer.innerHTML = '';
+                
+                selectedIds.forEach(id => {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'userIds';
+                    input.value = id;
+                    selectedUsersContainer.appendChild(input);
+                });
+
+                toolbarForm.action = actionUrl;
+                toolbarForm.submit();
+            }
+
+            btnBlock.addEventListener('click', function () {
+                executeToolbarAction('@Url.Action("Block", "Users")');
+            });
+
+            btnUnblock.addEventListener('click', function () {
+                executeToolbarAction('@Url.Action("Unblock", "Users")');
+            });
+
+            btnDelete.addEventListener('click', function () {
+                executeToolbarAction('@Url.Action("Delete", "Users")');
+            });
+
+            btnDeleteUnverified.addEventListener('click', function () {
+                executeToolbarAction('@Url.Action("DeleteUnverified", "Users")');
+            });
+
+            updateToolbarState();
+        });
+    </script>
+}
