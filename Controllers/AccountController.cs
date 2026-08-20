@@ -4,6 +4,7 @@ using System.Security.Claims;
 using System.Threading.Tasks;
 using AuthWeb.Data;
 using AuthWeb.Models;
+using AuthWeb.Services;
 using AuthWeb.ViewModels;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -17,11 +18,16 @@ namespace AuthWeb.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IPasswordHasher<User> _passwordHasher;
+        private readonly IEmailSender _emailSender;
 
-        public AccountController(ApplicationDbContext context, IPasswordHasher<User> passwordHasher)
+        public AccountController(
+            ApplicationDbContext context,
+            IPasswordHasher<User> passwordHasher,
+            IEmailSender emailSender)
         {
             _context = context;
             _passwordHasher = passwordHasher;
+            _emailSender = emailSender;
         }
 
         [HttpGet]
@@ -43,6 +49,7 @@ namespace AuthWeb.Controllers
                 return View(model);
             }
 
+            var token = Guid.NewGuid().ToString("N");
             var user = new User
             {
                 Id = Guid.NewGuid(),
@@ -50,7 +57,7 @@ namespace AuthWeb.Controllers
                 Email = model.Email.Trim().ToLowerInvariant(),
                 Status = UserStatus.Unverified,
                 RegisteredAt = DateTime.UtcNow,
-                ConfirmationToken = Guid.NewGuid().ToString("N")
+                ConfirmationToken = token
             };
 
             user.PasswordHash = _passwordHasher.HashPassword(user, model.Password);
@@ -62,8 +69,17 @@ namespace AuthWeb.Controllers
                 _context.Users.Add(user);
                 await _context.SaveChangesAsync();
 
-                // note: Confirmation email dispatch will be handled asynchronously.
-                TempData["SuccessMessage"] = "Registration successful! You may log in now. A confirmation email has been dispatched.";
+                // Asynchronously send confirmation email
+                var confirmationLink = Url.Action(
+                    "ConfirmEmail",
+                    "Account",
+                    new { userId = user.Id, token = token },
+                    Request.Scheme);
+
+                _ = Task.Run(() => _emailSender.SendEmailConfirmationAsync(user.Email, user.Name, confirmationLink ?? string.Empty));
+
+                TempData["SuccessMessage"] = "Registration successful! A confirmation email has been dispatched. (Check console logs if local SMTP is unconfigured)";
+                TempData["DevConfirmationLink"] = confirmationLink;
                 return RedirectToAction("Login");
             }
             catch (DbUpdateException ex)
@@ -80,6 +96,40 @@ namespace AuthWeb.Controllers
 
                 return View(model);
             }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> ConfirmEmail(Guid userId, string token)
+        {
+            if (userId == Guid.Empty || string.IsNullOrEmpty(token))
+            {
+                TempData["ErrorMessage"] = "Invalid confirmation link.";
+                return RedirectToAction("Login");
+            }
+
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+            if (user == null || user.ConfirmationToken != token)
+            {
+                TempData["ErrorMessage"] = "Invalid or expired confirmation link.";
+                return RedirectToAction("Login");
+            }
+
+            // important: If user is blocked, confirmation must NOT change blocked -> active. Blocked remains blocked!
+            if (user.Status == UserStatus.Blocked)
+            {
+                user.ConfirmationToken = null; // consume token
+                await _context.SaveChangesAsync();
+                TempData["ErrorMessage"] = "Your email has been verified. However, your account is currently blocked by an administrator.";
+                return RedirectToAction("Login");
+            }
+
+            // Change status from Unverified -> Active
+            user.Status = UserStatus.Active;
+            user.ConfirmationToken = null;
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = "Email address confirmed successfully! Your status is now Active. You can log in.";
+            return RedirectToAction("Login");
         }
 
         [HttpGet]
@@ -164,12 +214,11 @@ namespace AuthWeb.Controllers
             return RedirectToAction("Login");
         }
 
-        // Helper function to identify unique index constraint violation
         private static bool IsUniqueConstraintViolation(DbUpdateException ex)
         {
             var innerMessage = ex.InnerException?.Message ?? ex.Message;
             return innerMessage.Contains("UNIQUE constraint failed", StringComparison.OrdinalIgnoreCase) ||
-                   innerMessage.Contains("23505", StringComparison.OrdinalIgnoreCase) || // Postgres SQLState unique_violation
+                   innerMessage.Contains("23505", StringComparison.OrdinalIgnoreCase) ||
                    innerMessage.Contains("IX_Users_Email", StringComparison.OrdinalIgnoreCase) ||
                    innerMessage.Contains("duplicate key", StringComparison.OrdinalIgnoreCase);
         }
