@@ -1,4 +1,5 @@
 using AuthWeb.Data;
+using AuthWeb.Middleware;
 using AuthWeb.Models;
 using AuthWeb.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -68,6 +69,10 @@ app.UseStaticFiles();
 app.UseRouting();
 
 app.UseAuthentication();
+
+// important: Server-side validation middleware to force logout if user is blocked or deleted
+app.UseMiddleware<UserStatusValidationMiddleware>();
+
 app.UseAuthorization();
 
 app.MapControllerRoute(
