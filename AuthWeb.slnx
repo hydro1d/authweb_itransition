@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="AuthWeb.csproj" />
+  <Project Path="AuthWeb.Tests/AuthWeb.Tests.csproj" />
+</Solution>
