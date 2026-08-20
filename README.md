@@ -119,4 +119,4 @@ Executes 4 automated unit & integration tests covering database unique constrain
 ---
 
 ## 📄 License & Credits
-Developed by **ITransition Intern** for Task #4 completion.
+Developed by Sourabh Barua
